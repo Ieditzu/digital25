@@ -5,21 +5,23 @@ struct MainTabView: View {
         TabView {
             DashboardView()
                 .tabItem {
-                    Label("Dashboard", systemImage: "rectangle.grid.2x2.fill")
+                    Label("Dashboard", systemImage: "speedometer")
                 }
+            
             GraphView()
                 .tabItem {
-                    Label("Graphs", systemImage: "waveform.path.ecg")
+                    Label("Graph", systemImage: "chart.bar")
                 }
-            SettingsView()
-                .tabItem {
-                    Label("Settings", systemImage: "gear")
-                }
+            
             ControlView()
                 .tabItem {
-                    Label("Control", systemImage: "heart")
+                    Label("Control", systemImage: "gamecontroller")
+                }
+            
+            SettingsView()
+                .tabItem {
+                    Label("Settings", systemImage: "gearshape")
                 }
         }
-        .animation(.easeInOut, value: UUID())
     }
 }
