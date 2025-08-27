@@ -4,8 +4,6 @@ struct ControlView: View {
     @State private var dragOffset = CGSize.zero
     @State private var isDragging = false
     @State private var isManual = false
-    
-    // Timer to continuously send commands while dragging
     @State private var sendTimer: Timer? = nil
     
     var body: some View {
@@ -86,7 +84,7 @@ struct ControlView: View {
         .padding()
     }
     
-    // MARK: - Timer
+    // **TIMER**
     func startTimer() {
         if sendTimer == nil {
             sendTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
