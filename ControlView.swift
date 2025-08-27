@@ -1,137 +1,163 @@
 import SwiftUI
 
 struct ControlView: View {
-    @State private var dragOffset = CGSize.zero
-    @State private var isDragging = false
-    @State private var isManual = false
-    @State private var sendTimer: Timer? = nil
+    // Panel positions
+    @State private var joystickPosition: CGSize = CGSize(width: 50, height: 400)
+    @State private var radarPosition: CGSize = CGSize(width: 200, height: 100)
+    
+    // Joystick state
+    @State private var joystickOffset: CGSize = .zero
+    @State private var speed: Double = 0.0
+    @State private var direction: String = "stop"
+    
+    // Radar state
+    @State private var distance: Double = 100
     
     var body: some View {
-        VStack(spacing: 30) {
-            Text("Robot Control")
-                .font(.largeTitle)
-                .bold()
-                .padding(.top, 50)
+        ZStack {
+            Color.black.opacity(0.05).edgesIgnoringSafeArea(.all)
             
-            HStack(spacing: 20) {
-                Button(action: {
-                    isManual = false
-                    sendMode("auto")
-                    stopTimer()
-                }) {
-                    Text("Auto Control")
-                        .font(.title2)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(isManual ? Color.gray : Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(12)
-                }
-                
-                Button(action: {
-                    isManual = true
-                    sendMode("manual")
-                }) {
-                    Text("Manual Control")
-                        .font(.title2)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(isManual ? Color.green : Color.gray)
-                        .foregroundColor(.white)
-                        .cornerRadius(12)
-                }
+            // Joystick panel
+            DraggablePanel(position: $joystickPosition, title: "Joystick") {
+                JoystickView(offset: $joystickOffset, speed: $speed, direction: $direction)
+                    .frame(width: 150, height: 150)
             }
             
-            if isManual {
-                ZStack {
-                    Circle()
-                        .strokeBorder(Color.gray, lineWidth: 4)
-                        .frame(width: 200, height: 200)
-                    
-                    Circle()
-                        .fill(Color.blue)
-                        .frame(width: 50, height: 50)
-                        .offset(dragOffset)
-                        .gesture(
-                            DragGesture()
-                                .onChanged { value in
-                                    let radius: CGFloat = 100
-                                    var translation = value.translation
-                                    let distance = sqrt(translation.width * translation.width + translation.height * translation.height)
-                                    if distance > radius {
-                                        translation.width = translation.width / distance * radius
-                                        translation.height = translation.height / distance * radius
-                                    }
-                                    dragOffset = translation
-                                    isDragging = true
-                                    
-                                    startTimer()
-                                }
-                                .onEnded { _ in
-                                    dragOffset = .zero
-                                    isDragging = false
-                                    stopTimer()
-                                    sendJoystickCommand(translation: .zero, maxRadius: 100) // stop immediately
-                                }
-                        )
-                }
-                .frame(width: 200, height: 200)
-                .padding(.top, 30)
+            // Radar panel
+            DraggablePanel(position: $radarPosition, title: "Front Radar") {
+                RadarView(distance: $distance)
+                    .frame(width: 200, height: 200)
             }
-            
-            Spacer()
         }
-        .padding()
-    }
-    
-    // **TIMER**
-    func startTimer() {
-        if sendTimer == nil {
-            sendTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
-                sendJoystickCommand(translation: dragOffset, maxRadius: 100)
+        .onAppear {
+            Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { _ in
+                fetchSensorDistance()
+                sendControlCommand()
             }
         }
     }
     
-    func stopTimer() {
-        sendTimer?.invalidate()
-        sendTimer = nil
+    func fetchSensorDistance() {
+        guard let url = URL(string: "http://127.0.0.1:8000/sensor") else { return }
+        URLSession.shared.dataTask(with: url) { data, _, _ in
+            guard let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let front = json["front_distance"] as? Double else { return }
+            DispatchQueue.main.async {
+                distance = front
+            }
+        }.resume()
     }
     
-    // MARK: - Networking
-    func sendMode(_ mode: String) {
-        sendToServer(["mode": mode])
-    }
-    
-    func sendJoystickCommand(translation: CGSize, maxRadius: CGFloat) {
-        let dx = translation.width / maxRadius
-        let dy = -translation.height / maxRadius
-        var direction = ""
-        var speed: Double = sqrt(dx*dx + dy*dy)
-        if speed > 1 { speed = 1 }
-        
-        if abs(dx) > abs(dy) {
-            direction = dx > 0 ? "right" : "left"
-        } else if abs(dy) > 0.05 {
-            direction = dy > 0 ? "forward" : "backward"
-        } else {
-            direction = "stop"
-        }
-        
-        let body: [String: Any] = [
-            "mode": "manual",
-            "command": direction,
-            "speed": speed
-        ]
-        sendToServer(body)
-    }
-    
-    func sendToServer(_ body: [String: Any]) {
+    func sendControlCommand() {
         guard let url = URL(string: "http://127.0.0.1:8000/control") else { return }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        let json: [String: Any] = ["command": direction, "speed": speed]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: json)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
         URLSession.shared.dataTask(with: request).resume()
+    }
+}
+
+// Generic draggable panel
+struct DraggablePanel<Content: View>: View {
+    @Binding var position: CGSize
+    let title: String
+    let content: Content
+    
+    init(position: Binding<CGSize>, title: String, @ViewBuilder content: () -> Content) {
+        self._position = position
+        self.title = title
+        self.content = content()
+    }
+    
+    @State private var dragOffset: CGSize = .zero
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            Text(title)
+                .font(.headline)
+                .foregroundColor(.white)
+                .padding(8)
+                .background(Color.blue)
+            
+            content
+                .padding(8)
+        }
+        .background(Color.gray.opacity(0.9))
+        .cornerRadius(12)
+        .shadow(radius: 5)
+        .offset(x: position.width + dragOffset.width, y: position.height + dragOffset.height)
+        .gesture(
+            DragGesture()
+                .onChanged { gesture in
+                    dragOffset = gesture.translation
+                }
+                .onEnded { _ in
+                    position.width += dragOffset.width
+                    position.height += dragOffset.height
+                    dragOffset = .zero
+                }
+        )
+    }
+}
+
+// Radar
+struct RadarView: View {
+    @Binding var distance: Double
+    let maxDistance: Double = 100
+    
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                Circle().stroke(Color.green.opacity(0.5), lineWidth: 2)
+                Circle().stroke(Color.green.opacity(0.3), lineWidth: 2).scaleEffect(0.75)
+                Circle().stroke(Color.green.opacity(0.2), lineWidth: 2).scaleEffect(0.5)
+                
+                Rectangle()
+                    .fill(Color.red)
+                    .frame(width: 4, height: CGFloat(min(distance,maxDistance))/CGFloat(maxDistance) * geo.size.width/2)
+                    .offset(y: -CGFloat(min(distance,maxDistance))/CGFloat(maxDistance) * geo.size.width/4)
+            }
+        }.aspectRatio(1, contentMode: .fit)
+    }
+}
+
+// Joystick
+struct JoystickView: View {
+    @Binding var offset: CGSize
+    @Binding var speed: Double
+    @Binding var direction: String
+    
+    var body: some View {
+        ZStack {
+            Circle().stroke(Color.gray, lineWidth: 2)
+            Circle()
+                .fill(Color.blue.opacity(0.5))
+                .frame(width: 50, height: 50)
+                .offset(offset)
+                .gesture(
+                    DragGesture()
+                        .onChanged { gesture in
+                            let maxDistance: CGFloat = 50
+                            let dx = min(max(gesture.translation.width, -maxDistance), maxDistance)
+                            let dy = min(max(gesture.translation.height, -maxDistance), maxDistance)
+                            offset = CGSize(width: dx, height: dy)
+                            
+                            speed = min(1.0, sqrt(dx*dx + dy*dy)/maxDistance)
+                            if dy < -10 { direction = "forward" }
+                            else if dy > 10 { direction = "backward" }
+                            else if dx < -10 { direction = "left" }
+                            else if dx > 10 { direction = "right" }
+                            else { direction = "stop" }
+                        }
+                        .onEnded { _ in
+                            offset = .zero
+                            speed = 0
+                            direction = "stop"
+                        }
+                )
+        }
     }
 }
