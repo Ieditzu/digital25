@@ -17,7 +17,7 @@ struct HeaderView: View {
         .padding(.horizontal, 12)
         .background(
             RoundedRectangle(cornerRadius: 20)
-                .fill(colorScheme == .dark ? Color(.systemGray6).opacity(0.9) : Color.blue.opacity(0.9)) 
+                .fill(colorScheme == .dark ? Color(.systemGray6).opacity(0.9) : Color.blue.opacity(0.9))
                 .shadow(color: .black.opacity(0.3), radius: 5, x: 0, y: 5)
         )
         .padding(.horizontal, 16)
