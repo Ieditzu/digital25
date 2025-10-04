@@ -127,7 +127,7 @@ struct ControlView: View {
     }
     
     func sendToServer(_ body: [String: Any]) {
-        guard let url = URL(string: "http://127.0.0.1:8000/control") else { return }
+        guard let url = URL(string: "http://192.168.0.109:8000/control") else { return }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
