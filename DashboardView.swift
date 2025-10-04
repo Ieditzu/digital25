@@ -27,7 +27,7 @@ struct DashboardView: View {
     }
     
     func fetchData() {
-        guard let url = URL(string: "http://127.0.0.1:8000/sensor") else { return }
+        guard let url = URL(string: "http://192.168.0.109:8000/sensor") else { return }
         
         Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
             URLSession.shared.dataTask(with: url) { data, _, _ in
