@@ -20,7 +20,32 @@ struct SettingsView: View {
                     }
                 }
             }
+            
+            Section(header: Text("Simulate Notifications")) {
+                Button("🔥 Simulate Too Hot") {
+                    NotificationManager.shared.sendNotification(
+                        title: "🔥 Too Hot!",
+                        body: "Temperature exceeded safe levels!"
+                    )
+                }
+                Button("❄️ Simulate Too Cold") {
+                    NotificationManager.shared.sendNotification(
+                        title: "❄️ Too Cold!",
+                        body: "Temperature dropped below normal!"
+                    )
+                }
+                Button("🌫️ Simulate Polluted Air") {
+                    NotificationManager.shared.sendNotification(
+                        title: "🌫️ Air Too Polluted!",
+                        body: "Air quality index is too high!"
+                    )
+                }
+            }
         }
         .navigationTitle("Settings")
+        .onAppear {
+            // Ask for permission just in case
+            NotificationManager.shared.requestPermission()
+        }
     }
 }
