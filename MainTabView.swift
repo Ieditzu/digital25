@@ -16,6 +16,9 @@ struct MainTabView: View {
                 ControlView()
                     .tabItem { Label("Control", systemImage: "gamecontroller") }
                 
+                MrGreenAIView()
+                    .tabItem { Label("Mr. Green", systemImage: "leaf.circle.fill")}
+                
                 SettingsView()
                     .tabItem { Label("Settings", systemImage: "gearshape") }
             }
